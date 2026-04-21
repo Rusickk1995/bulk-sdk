@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bulk-sdk"
+version = "0.1.0"
+description = "Python SDK scaffold for BULK Exchange"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+  { name = "BULK Exchange SDK Team" },
+]
+license = { text = "Proprietary" }
+keywords = ["bulk", "exchange", "sdk", "api"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
+  "Typing :: Typed",
+]
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["bulk_sdk*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
