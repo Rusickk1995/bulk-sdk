@@ -4,7 +4,23 @@ from __future__ import annotations
 
 from typing import Any
 
-from bulk_keychain import Keypair, Signer
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from bulk_keychain import Keypair, Signer, finalize_transaction, prepare_order
+
+
+BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+
+
+def _b58encode(data: bytes) -> str:
+    value = int.from_bytes(data, "big")
+    result = ""
+
+    while value:
+        value, remainder = divmod(value, 58)
+        result = BASE58_ALPHABET[remainder] + result
+
+    leading_zeroes = len(data) - len(data.lstrip(b"\0"))
+    return "1" * leading_zeroes + (result or "1")
 
 
 class BulkSigner:
@@ -20,6 +36,11 @@ class BulkSigner:
     def _group_envelope(self, payloads: list[dict[str, Any]]) -> dict[str, Any]:
         signed = self._signer.sign_group(payloads)
         return dict(signed)
+
+    def _sign_prepared(self, prepared: dict[str, Any]) -> dict[str, Any]:
+        private_key = Ed25519PrivateKey.from_private_bytes(self._keypair.to_bytes()[:32])
+        signature = private_key.sign(prepared["message_bytes"])
+        return dict(finalize_transaction(prepared, _b58encode(signature)))
 
     def sign_limit_order(
         self,
@@ -201,3 +222,26 @@ class BulkSigner:
             },
         ]
         return self._group_envelope(payloads)
+
+    def sign_agent_wallet(self, agent_pubkey: str, delete: bool = False) -> dict[str, Any]:
+        signed = self._signer.sign_agent_wallet(agent_pubkey, delete)
+        return dict(signed)
+
+    def sign_as_agent(self, order: dict[str, Any], account: str) -> dict[str, Any]:
+        prepared = prepare_order(order, account=account, signer=self.account)
+        return self._sign_prepared(prepared)
+
+    def sign_user_settings(self, max_leverage: dict[str, float]) -> dict[str, Any]:
+        signed = self._signer.sign_user_settings(list(max_leverage.items()))
+        payload = dict(signed)
+
+        for action in payload.get("actions", []):
+            settings = action.get("updateUserSettings")
+            if isinstance(settings, dict) and isinstance(settings.get("m"), list):
+                settings["m"] = dict(settings["m"])
+
+        return payload
+
+    def sign_faucet(self) -> dict[str, Any]:
+        signed = self._signer.sign_faucet()
+        return dict(signed)
